@@ -1,0 +1,78 @@
+version: '3.1'
+
+services:
+  zookeeper:
+    image: zookeeper
+    container_name: zookeeper
+    restart: always
+    ports:
+      - "2181:2181"
+  kafka:
+    image: wurstmeister/kafka:2.12-2.1.1
+    depends_on:
+      - zookeeper
+    links:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_ADVERTISED_HOST_NAME: 10.6.5.156
+      KAFKA_CREATE_TOPICS: "test:1:1"
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_INTER_BROKER_PROTOCOL_VERSION: 0.8.2
+      KAFKA_LOG_MESSAGE_FORMAT_VERSION: 0.8.2
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  nimbus:
+    image: storm:0.9.7
+    container_name: nimbus
+    command: storm nimbus
+    depends_on:
+      - zookeeper
+    links:
+      - zookeeper
+    restart: always
+    ports:
+      - 6627:6627
+    volumes:
+      - $PWD/storm/logs:/logs
+      - $PWD/storm/data:/data
+      - $PWD/storm.yaml:/conf/storm.yaml
+      - $PWD/cluster.xml:/apache-storm-0.9.7/logback/cluster.xml
+
+  stormui:
+    image: storm:0.9.7
+    container_name: stormui
+    command: storm ui
+    depends_on:
+      - nimbus
+      - zookeeper
+    links:
+      - nimbus
+      - zookeeper
+    restart: always
+    ports:
+      - 8088:8088
+    volumes:
+      - $PWD/storm/logs:/logs
+      - $PWD/storm/data:/data
+      - $PWD/storm.yaml:/conf/storm.yaml
+      - $PWD/cluster.xml:/apache-storm-0.9.7/logback/cluster.xml
+
+
+  supervisor:
+    image: storm:0.9.7
+    container_name: supervisor
+    command: storm supervisor
+    depends_on:
+      - nimbus
+      - zookeeper
+    links:
+      - nimbus
+      - zookeeper
+    restart: always
+    volumes:
+      - $PWD/storm/logs:/logs
+      - $PWD/storm/data:/data
+      - $PWD/storm.yaml:/conf/storm.yaml
+      - $PWD/cluster.xml:/apache-storm-0.9.7/logback/cluster.xml
